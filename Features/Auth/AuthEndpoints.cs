@@ -25,6 +25,7 @@ public static class AuthEndpoints
         group.MapPost("/register", Register);
         group.MapPost("/login", Login);
         group.MapGet("/me", Me).RequireAuthorization();
+        group.MapDelete("/me", DeleteMe).RequireAuthorization();
 
         return group;
     }
@@ -132,6 +133,32 @@ public static class AuthEndpoints
         if (user is null) return Results.NotFound();
 
         return Results.Ok(new UserDto(user.Id, user.Email, user.DisplayName));
+    }
+
+    /// <summary>
+    /// Borra la cuenta de quien la pide, con todo su contenido.
+    /// </summary>
+    /// <remarks>
+    /// Un solo DELETE sobre el usuario: las claves ajenas en cascada se llevan
+    /// por delante sus tableros, columnas, tarjetas y trazos. No hace falta
+    /// recorrer nada a mano, y al ser una única sentencia no puede quedarse a
+    /// medias dejando tarjetas huérfanas.
+    ///
+    /// Solo puede borrar su propia cuenta: el identificador sale del token, no
+    /// de la URL, así que no hay forma de pedir el borrado de otra persona.
+    /// </remarks>
+    private static async Task<IResult> DeleteMe(
+        ClaimsPrincipal principal,
+        KromaDbContext db,
+        CancellationToken ct)
+    {
+        var userId = principal.GetUserId();
+
+        var deleted = await db.Users
+            .Where(u => u.Id == userId)
+            .ExecuteDeleteAsync(ct);
+
+        return deleted == 0 ? Results.NotFound() : Results.NoContent();
     }
 
     private static IResult InvalidCredentials() =>

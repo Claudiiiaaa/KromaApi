@@ -3,7 +3,7 @@
 set -u
 API="http://localhost:5212"
 RUN=$(date +%s)
-EMAIL="claudia+$RUN@example.com"
+EMAIL="kroma-test-a+$RUN@example.com"
 
 field() { grep -o "\"$1\":\"[^\"]*\"" | head -1 | cut -d'"' -f4; }
 check() { # check <esperado> <obtenido> <descripción>
@@ -19,7 +19,7 @@ STROKE3="33333333-3333-7333-8333-$(printf '%012d' "$RUN")"
 
 echo "== 1. Registro ($EMAIL)"
 REG=$(curl -s -X POST "$API/auth/register" -H "Content-Type: application/json" \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"unaClaveSegura1\",\"displayName\":\"Claudia\"}")
+  -d "{\"email\":\"$EMAIL\",\"password\":\"unaClaveSegura1\",\"displayName\":\"Prueba A\"}")
 TOKEN=$(echo "$REG" | field token)
 if [ -z "$TOKEN" ]; then echo "   FALLO: $REG"; exit 1; fi
 echo "   OK  token recibido (${#TOKEN} caracteres)"
@@ -120,12 +120,30 @@ check 204 "$MOVED" "mover tarjeta"
 
 echo "== 14. Aislamiento entre cuentas"
 OTHER=$(curl -s -X POST "$API/auth/register" -H "Content-Type: application/json" \
-  -d "{\"email\":\"intrusa+$RUN@example.com\",\"password\":\"otraClave12345\",\"displayName\":\"Intrusa\"}")
+  -d "{\"email\":\"kroma-test-b+$RUN@example.com\",\"password\":\"otraClave12345\",\"displayName\":\"Prueba B\"}")
 OTHER_TOKEN=$(echo "$OTHER" | field token)
 check 404 "$(curl -s -o /dev/null -w '%{http_code}' "$API/cards/$CARD_ID/strokes" \
   -H "Authorization: Bearer $OTHER_TOKEN")" "leer tinta ajena"
 check 404 "$(curl -s -o /dev/null -w '%{http_code}' "$API/boards/$BOARD_ID" \
   -H "Authorization: Bearer $OTHER_TOKEN")" "leer tablero ajeno"
 
+
+
+
+echo "== 15. Borrar la cuenta se lleva todo por delante"
+# El script limpia lo que ha creado. Sin esto, cada ejecución dejaría dos
+# cuentas con sus tableros y su tinta acumulándose en la base de datos, que en
+# el plan gratuito de Neon tiene 0,5 GB.
+check 204 "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$API/auth/me" \
+  -H "$AUTH")" "borrar cuenta principal"
+
+# Al borrarse la cuenta, su tarjeta deja de existir: el token sigue siendo
+# criptográficamente válido, pero ya no hay nada detrás.
+check 404 "$(curl -s -o /dev/null -w '%{http_code}' "$API/boards/$BOARD_ID" \
+  -H "$AUTH")" "el tablero ya no existe"
+
+check 204 "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$API/auth/me" \
+  -H "Authorization: Bearer $OTHER_TOKEN")" "borrar cuenta secundaria"
+
 echo
-echo "FIN"
+echo "FIN (la base de datos queda como estaba)"
