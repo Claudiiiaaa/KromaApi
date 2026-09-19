@@ -1,0 +1,95 @@
+@host = http://localhost:5212
+
+### Comprobar que el servidor responde (no necesita sesión)
+GET {{host}}/health
+
+### Registrarse. Copia el "token" de la respuesta en la variable de abajo.
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "claudia@example.com",
+  "password": "unaClaveSegura1",
+  "displayName": "Claudia"
+}
+
+### Iniciar sesión
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "claudia@example.com",
+  "password": "unaClaveSegura1"
+}
+
+### Pega aquí el token que devuelve el registro o el inicio de sesión
+@token = pega-el-token-aqui
+
+### Quién soy
+GET {{host}}/auth/me
+Authorization: Bearer {{token}}
+
+### Mis tableros
+GET {{host}}/boards
+Authorization: Bearer {{token}}
+
+### Detalle de un tablero, con columnas y tarjetas
+@boardId = pega-el-id-del-tablero
+GET {{host}}/boards/{{boardId}}
+Authorization: Bearer {{token}}
+
+### Crear una tarjeta
+@columnId = pega-el-id-de-la-columna
+POST {{host}}/columns/{{columnId}}/cards
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Comprar pinceles"
+}
+
+### Mover una tarjeta a otra columna
+# La posición la calcula el cliente: la media entre sus dos futuras vecinas.
+@cardId = pega-el-id-de-la-tarjeta
+POST {{host}}/cards/{{cardId}}/move
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "targetColumnId": "{{columnId}}",
+  "position": 1500
+}
+
+### Subir tinta
+# Los puntos van aplanados de cuatro en cuatro: x, y, presión, milisegundos.
+POST {{host}}/cards/{{cardId}}/strokes/sync
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "added": [
+    {
+      "id": "11111111-1111-7111-8111-111111111111",
+      "tool": "pen",
+      "colorArgb": -16777216,
+      "baseWidth": 3,
+      "simulatePressure": false,
+      "points": [0, 0, 0.5, 0, 10, 10, 0.6, 16, 20, 5, 0.4, 32]
+    }
+  ],
+  "deletedIds": []
+}
+
+### Leer la tinta de una tarjeta
+GET {{host}}/cards/{{cardId}}/strokes
+Authorization: Bearer {{token}}
+
+### Borrar tinta (mismo endpoint, solo con identificadores a borrar)
+POST {{host}}/cards/{{cardId}}/strokes/sync
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "added": [],
+  "deletedIds": ["11111111-1111-7111-8111-111111111111"]
+}
