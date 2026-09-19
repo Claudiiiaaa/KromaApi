@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restaurar dependencias
+        run: dotnet restore
+
+      # En Release están activados los avisos como errores, así que esto detecta
+      # los problemas de nulabilidad que en Debug pasan desapercibidos.
+      - name: Compilar
+        run: dotnet build --no-restore -c Release
